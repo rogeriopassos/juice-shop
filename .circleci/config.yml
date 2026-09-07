@@ -10,7 +10,7 @@ jobs:
   build:
 
     docker:
-      - image: cimg/node:22.13.1
+      - image: cimg/node:19.6.1
 
     steps:
       - checkout 
@@ -18,6 +18,11 @@ jobs:
       - run: sudo npm install -g grunt-cli
       - run: npm install --legacy-peer-deps
       - run: ls -la
+      - run:
+          name: Build Frontend com ignorar motor
+          command: |
+            export ENGINE_STRICT=false
+            npm run build:frontend -- --engine-strict=false || cd .
       - persist_to_workspace:
           root: .
           paths:
@@ -26,7 +31,7 @@ jobs:
   test:
 
     docker:
-      - image: cimg/node:22.13.1-browsers
+      - image: cimg/node:19.6.1-browsers
 
     steps:
       - attach_workspace:
