@@ -16,7 +16,7 @@ jobs:
       - checkout 
       - run: sudo npm install -g @angular/cli
       - run: sudo npm install -g grunt-cli
-      - run: npm install
+      - run: npm install --legacy-peer-deps
       - run: ls -la
       - persist_to_workspace:
           root: .
