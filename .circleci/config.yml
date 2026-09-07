@@ -40,7 +40,7 @@ jobs:
   deploy:
 
     docker:
-      - image: cimg/base:2022.09
+      - image: cimg/base:stable
         auth:
           username: $DOCKERHUB_USERNAME
           password: $DOCKERHUB_PASSWORD
@@ -48,7 +48,7 @@ jobs:
     steps:
 
       - setup_remote_docker:
-          version: 20.10.18
+          version: 24.0.7
           
       - attach_workspace:
           at: .
