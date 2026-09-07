@@ -10,13 +10,13 @@ jobs:
   build:
 
     docker:
-      - image: cimg/node:19.6.1
+      - image: cimg/node:22.24.0
 
     steps:
       - checkout 
       - run: sudo npm install -g @angular/cli
       - run: sudo npm install -g grunt-cli
-      - run: npm install --legacy-peer-deps --engine-strict=false
+      - run: npm install --legacy-peer-deps
       - run: ls -la
       - persist_to_workspace:
           root: .
@@ -26,7 +26,7 @@ jobs:
   test:
 
     docker:
-      - image: cimg/node:19.6.1-browsers
+      - image: cimg/node:22.24.0-browsers
 
     steps:
       - attach_workspace:
