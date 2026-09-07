@@ -31,7 +31,6 @@ jobs:
     steps:
       - attach_workspace:
           at: .
-      - browser-tools/install-browser-tools
       - run: ls -la
       - run: sudo npm install -g @angular/cli
       - run: sudo npm install -g grunt-cli
