@@ -16,13 +16,8 @@ jobs:
       - checkout 
       - run: sudo npm install -g @angular/cli
       - run: sudo npm install -g grunt-cli
-      - run: npm install --legacy-peer-deps
+      - run: npm install --legacy-peer-deps --engine-strict=false
       - run: ls -la
-      - run:
-          name: Build Frontend com ignorar motor
-          command: |
-            export ENGINE_STRICT=false
-            npm run build:frontend -- --engine-strict=false || cd .
       - persist_to_workspace:
           root: .
           paths:
