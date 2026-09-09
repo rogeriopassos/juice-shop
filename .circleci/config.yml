@@ -27,7 +27,7 @@ jobs:
 
     docker:
       - image: cimg/node:22.22.3-browsers
-        version: default"
+        version: default
 
     steps:
       - attach_workspace:
