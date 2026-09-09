@@ -48,8 +48,7 @@ jobs:
     steps:
 
       - setup_remote_docker:
-          version: 24.0.7
-          
+                
       - attach_workspace:
           at: .
 
