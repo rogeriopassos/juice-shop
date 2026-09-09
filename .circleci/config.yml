@@ -1,4 +1,4 @@
-# Versão do Circle CI config file
+# Versão do Circle CI config file - Rogério
 version: 2.1
 
 orbs:
