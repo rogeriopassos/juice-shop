@@ -133,10 +133,21 @@ jobs:
       - run:
           name: Instalando curl e jq
           command: apk update && apk add curl jq
-
+      
+      - run:
+          name: Garantir histórico completo do Git
+          command: |
+            # Se for um clone raso, puxa o restante do histórico
+            if [ -f .git/shallow ]; then
+              git fetch --unshallow || git fetch --all
+            fi
       - run:
           name: "Scan for secrets"
-          command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+          # Alterado de 'git file://.' para 'filesystem .'
+          command: trufflehog filesystem . --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+      #- run:
+       #   name: "Scan for secrets"
+        #  command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
 
   # Executa o secrets scanning no repositório completo
   test_secrets_scanning:
@@ -155,10 +166,20 @@ jobs:
       - run:
           name: Instalando curl e jq
           command: apk update && apk add curl jq
-
+      - run:
+          name: Garantir histórico completo do Git
+          command: |
+            if [ -f .git/shallow ]; then
+              git fetch --unshallow || git fetch --all
+            fi
       - run:
           name: "Scan for secrets"
-          command: trufflehog git file://. --fail --only-verified -j | tee -a trufflehog-report.json | jq           
+          # Alterado de 'git file://.' para 'filesystem .'
+          command: trufflehog filesystem . --fail --only-verified -j | tee -a trufflehog-report.json | jq
+
+      #- run:
+       #   name: "Scan for secrets"
+        #  command: trufflehog git file://. --fail --only-verified -j | tee -a trufflehog-report.json | jq           
   deploy:
     docker:
       - image: cimg/base:stable
