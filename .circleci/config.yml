@@ -3,6 +3,7 @@ version: 2.1
 orbs:
   browser-tools: circleci/browser-tools@1.1.0
   aws-cli: circleci/aws-cli@3.1.4
+  snyk: snyk/snky@1.4.0
 jobs:
 
   build:
@@ -28,6 +29,44 @@ jobs:
       - run: sudo npm install -g @angular/cli
       - run: sudo npm install -g grunt-cli
       - run: npm run test:frontend && npm run test:server
+
+ # Executa o Software composition Analysis
+  test_sca:
+
+    # Variaveis para integrar com Defect Dojo
+    environment:
+      APP_NAME: "juice-shop"
+      DEFECT_DOJO_API_URL: "https://defectdojo.soulsec.net/api/v2/import-scan/"
+      SCAN_TYPE: "Snyk Scan"
+      REPORT_FILE: "report.json"
+
+    docker:
+      - image: cimg/node:22.22.3
+
+    steps:
+      - attach_workspace:
+          at: .
+
+      - snyk/scan:
+
+          # Falha o build caso alguma vulnerabilidade seja encontrada
+          fail-on-issues: true
+
+          # Falha se encontrar alguma falha nesta severidade
+          severity-threshold: high
+
+          # Tire uma imagem instantânea das dependências atuais da aplicação para monitoramento contínuo pelo Snyk, se o teste foi bem-sucedido.
+          monitor-on-build: true
+
+          # Define o nome desse projeto para o scan
+          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}'
+
+          # Nome da Nome da variável de ambiente usada para armazenar o token de auth no Snyk
+          token-variable: SNYK_TOKEN
+
+          # Argumentos adicionais da CLI (https://docs.snyk.io/snyk-cli/cli-reference)
+          # additional-arguments: '--fail-fast --all-projects'
+          additional-arguments: '--json-file-output=report.json'      
   deploy:
     docker:
       - image: cimg/base:stable
@@ -35,25 +74,7 @@ jobs:
           username: $DOCKERHUB_USERNAME
           password: $DOCKERHUB_PASSWORD
     steps:
-      # =====================================================================
-      # >>> ERA AQUI QUE ESTAVA O ERRO <<<
-      #
-      # Antes:
-      #   - setup_remote_docker:
-      #       version: 24.0.7
-      #
-      # O CircleCI nao aceita mais um numero de versao fixo do Docker nesse
-      # step. As tags validas hoje sao: default, edge, previous, docker29,
-      # docker27 e docker26 (alem da antiga 20.10.24, ja depreciada).
-      # Com "24.0.7" o job era rejeitado em 0s, antes de rodar qualquer
-      # comando, com a mensagem:
-      #   "Job was rejected because the requested resource class is not
-      #    available for Remote Docker, or the Docker version is not
-      #    supported on this resource class."
-      #
-      # Correcao: usar o step sem a chave "version", como abaixo.
-      # (Se quiser deixar explicito, use "version: default" no lugar.)
-      # =====================================================================
+     
       - setup_remote_docker
 
       - attach_workspace:
@@ -80,6 +101,17 @@ workflows:
       - test:
           requires:
             - build
-      - deploy:
+      - test_sca:
+          requires:
+            - build
+      - deploy-stg:
           requires:
             - test
+            - test_sca
+          filters:
+            branches:
+              ignore: master
+      - deploy-prod:
+          requires:
+            - test
+            - test_sca
