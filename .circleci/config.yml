@@ -115,36 +115,35 @@ jobs:
           command: semgrep ci --json -o semgrep-report.json || true
 
   # Executa o secrets scanning no repositório considerando apenas as modificações pela Branch atual
-  pr_test_secrets_scanning:
-
+    pr_test_secrets_scanning:
     docker:
       - image: trufflesecurity/trufflehog:latest
-
     environment:
       APP_NAME: "juice-shop"
-      DEFECT_DOJO_API_URL: "https://defectdojo.soulsec.net/api/v2/import-scan/"
+      DEFECT_DOJO_API_URL: "https://soulsec.net"
       SCAN_TYPE: "Trufflehog Scan"
       REPORT_FILE: "trufflehog-report.json"
-
     steps:
       - checkout
-
-      # Dependência para enviar o relatório para o DefectDOJO
       - run:
           name: Instalando curl e jq
           command: apk update && apk add curl jq
-      
       - run:
-          name: Garantir histórico completo do Git
+          name: Garantir histórico completo do Git para a varredura
           command: |
-            # Se for um clone raso, puxa o restante do histórico
+            # Evita o erro de bloqueio de objetos ausentes do remote parcial do CircleCI
+            git config --global core.partialclonefilter ""
+            
+            # Garante que temos acesso à branch master/main e à branch atual no histórico local
+            git fetch origin master --deepen=100 || git fetch origin master || true
+            
             if [ -f .git/shallow ]; then
-              git fetch --unshallow || git fetch --all
+              git fetch --unshallow || git fetch --all || true
             fi
       - run:
           name: "Scan for secrets"
-          # Alterado de 'git file://.' para 'filesystem .'
-          command: trufflehog filesystem . --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+          # Voltamos para o 'git file://.' porque ele aceita as flags de PR corretas
+          command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
       #- run:
        #   name: "Scan for secrets"
         #  command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
