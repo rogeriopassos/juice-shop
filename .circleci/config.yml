@@ -66,7 +66,128 @@ jobs:
 
           # Argumentos adicionais da CLI (https://docs.snyk.io/snyk-cli/cli-reference)
           # additional-arguments: '--fail-fast --all-projects'
-          additional-arguments: '--json-file-output=report.json'      
+          additional-arguments: '--json-file-output=report.json'    
+  # Configura Semgrep para analizar somente as modificações em stand-alone mode
+  pr_test_sast:
+
+    environment:
+      SEMGREP_RULES: p/default
+      # Define com a partir de qual Branch as modificações devem ser consideradas
+      SEMGREP_BASELINE_REF: "origin/master"
+
+    docker:
+      - image: returntocorp/semgrep
+
+    steps:
+      - checkout
+
+      - run:
+          name: "Semgrep scan"
+          command: semgrep ci
+
+  # Configura Semgrep para enviar o resultado do scan para semgrep.dev
+  # Executa Análise estática de código
+  test_sast:
+
+    environment:
+      SEMGREP_RULES: p/default
+      APP_NAME: "juice-shop"
+      DEFECT_DOJO_API_URL: "https://defectdojo.soulsec.net/api/v2/import-scan/"
+      SCAN_TYPE: "Semgrep JSON Report"
+      REPORT_FILE: "semgrep-report.json"
+
+    docker:
+      - image: returntocorp/semgrep
+
+    steps:
+      - checkout
+
+      - run:
+          name: Instalando curl e jq
+          command: apk update && apk add curl jq
+
+      - run:
+          name: "Semgrep scan"
+          # Roda o semgrep falhando o pipeline
+          # command: semgrep ci --json -o semgrep-report.json
+
+          # Roda o semgrep sem falhar o pipeline
+          command: semgrep ci --json -o semgrep-report.json || true
+
+  # Executa o secrets scanning no repositório considerando apenas as modificações pela Branch atual
+  pr_test_secrets_scanning:
+
+    docker:
+      - image: trufflesecurity/trufflehog:latest
+
+    environment:
+      APP_NAME: "juice-shop"
+      DEFECT_DOJO_API_URL: "https://defectdojo.soulsec.net/api/v2/import-scan/"
+      SCAN_TYPE: "Trufflehog Scan"
+      REPORT_FILE: "trufflehog-report.json"
+
+    steps:
+      - checkout
+
+      # Dependência para enviar o relatório para o DefectDOJO
+      - run:
+          name: Instalando curl e jq
+          command: apk update && apk add curl jq
+      - run:
+          name: Garantir histórico completo da branch master
+          command: |
+            # Puxa o histórico da master para que a flag --since-commit master funcione localmente
+            git fetch origin master --depth=100 || git fetch origin master || true
+      - run:
+          name: "Scan for secrets"
+          # Adicionada a flag --trust-local-git-config para evitar o erro de clone (exit status 128)
+          command: trufflehog git file://. --trust-local-git-config --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+      #- run:
+       #   name: Garantir histórico completo do Git
+        #  command: |
+            # Se for um clone raso, puxa o restante do histórico
+         #   if [ -f .git/shallow ]; then
+          #    git fetch --unshallow || git fetch --all
+           # fi
+     # - run:
+      #    name: "Scan for secrets"
+          # Alterado de 'git file://.' para 'filesystem .'
+       #   command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+      #- run:
+       #   name: "Scan for secrets"
+        #  command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+
+  # Executa o secrets scanning no repositório completo
+  test_secrets_scanning:
+
+    docker:
+      - image: trufflesecurity/trufflehog:latest
+
+    environment:
+      APP_NAME: "juice-shop"
+      DEFECT_DOJO_API_URL: "https://defectdojo.soulsec.net/api/v2/import-scan/"
+      SCAN_TYPE: "Trufflehog Scan"
+      REPORT_FILE: "trufflehog-report.json"
+
+    steps:
+      - checkout
+      - run:
+          name: Instalando curl e jq
+          command: apk update && apk add curl jq
+      - run:
+          name: Garantir histórico completo do Git
+          command: |
+            if [ -f .git/shallow ]; then
+              git fetch --unshallow || git fetch --all
+            fi
+      - run:
+          name: "Scan for secrets"
+          # Alterado de 'git file://.' para 'filesystem .'
+          command: trufflehog filesystem . --fail --only-verified -j | tee -a trufflehog-report.json | jq
+
+      #- run:
+       #   name: "Scan for secrets"
+        #  command: trufflehog git file://. --fail --only-verified -j | tee -a trufflehog-report.json | jq           
   deploy:
     docker:
       - image: cimg/base:stable
@@ -103,8 +224,22 @@ workflows:
             - build
       - test_sca:
           requires:
-            - build      
+            - build  
+      - test_secrets_scanning:
+          requires:
+            - build
+      - pr_test_secrets_scanning:
+          requires:
+            - build
+      - test_sast:
+          requires:
+            - build
+      - pr_test_sast:
+          requires:
+            - build                            
       - deploy:
           requires:
             - test
             - test_sca
+            - pr_test_secrets_scanning
+            - pr_test_sast
