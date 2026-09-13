@@ -133,18 +133,26 @@ jobs:
       - run:
           name: Instalando curl e jq
           command: apk update && apk add curl jq
-      
       - run:
-          name: Garantir histórico completo do Git
+          name: Garantir histórico completo da branch master
           command: |
-            # Se for um clone raso, puxa o restante do histórico
-            if [ -f .git/shallow ]; then
-              git fetch --unshallow || git fetch --all
-            fi
+            # Puxa o histórico da master para que a flag --since-commit master funcione localmente
+            git fetch origin master --depth=100 || git fetch origin master || true
       - run:
           name: "Scan for secrets"
+          # Adicionada a flag --trust-local-git-config para evitar o erro de clone (exit status 128)
+          command: trufflehog git file://. --trust-local-git-config --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+      #- run:
+       #   name: Garantir histórico completo do Git
+        #  command: |
+            # Se for um clone raso, puxa o restante do histórico
+         #   if [ -f .git/shallow ]; then
+          #    git fetch --unshallow || git fetch --all
+           # fi
+     # - run:
+      #    name: "Scan for secrets"
           # Alterado de 'git file://.' para 'filesystem .'
-          command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
+       #   command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
       #- run:
        #   name: "Scan for secrets"
         #  command: trufflehog git file://. --since-commit master --branch "$CIRCLE_BRANCH" -j | tee -a trufflehog-report.json | jq
